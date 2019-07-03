@@ -1,0 +1,165 @@
+
+
+
+Sub auto_open()
+  'If ActiveSheet.Name = "Enrollment Transaction Report S" Then
+    'Cells.MergeCells = False
+    'ActiveSheet.Columns("B").ColumnWidth = 20
+  'End If
+  'Application.OnKey "{F12}", "TurnOffMerge"
+  Application.OnKey "^m", "ReformatDestinyReport"
+End Sub
+
+Sub ReformatDestinyReport()
+    Call TurnOffMerge
+    
+    ' Delete top n rows.  Find B column with "Date" string.  The location of this row depends on parameters supplied to report.
+    Dim SearchRange As Range
+    Dim FindRow As Range
+    Set SearchRange = Range("B1", Range("B65536").End(xlUp))
+    Set FindRow = SearchRange.Find("Date", LookIn:=xlValues, lookat:=xlWhole)
+    Rows("1:" + Trim(Str(FindRow.Row) - 1)).Delete
+    
+    ' Delete last row
+    Set rlastrow = Cells(Rows.Count, "A").End(xlUp)
+    Cells.Find(What:="*", After:=[A1], SearchOrder:=xlByRows, SearchDirection:=xlPrevious).EntireRow.Delete
+    
+    ' Delete blank columns
+    Call DeleteBlankColumns
+    
+    ' Freeze top header cells
+    ' http://stackoverflow.com/questions/3232920/how-can-i-programmatically-freeze-the-top-row-of-an-excel-worksheet-in-excel-200
+    Application.ScreenUpdating = True
+    Dim r As Range
+    Set r = ActiveCell
+    Range("A2").Select
+    With ActiveWindow
+        .FreezePanes = False
+        .ScrollRow = 1
+        .ScrollColumn = 1
+        .FreezePanes = True
+        .ScrollRow = r.Row
+    End With
+    r.Select
+    
+    ' Delete unneeded columns
+    Range("O1").EntireColumn.Delete
+    Range("N1").EntireColumn.Delete
+    Range("M1").EntireColumn.Delete
+    Range("L1").EntireColumn.Delete
+    Range("K1").EntireColumn.Delete
+    Range("J1").EntireColumn.Delete
+    Range("H1").EntireColumn.Delete
+    Range("B1").EntireColumn.Delete
+    Range("A1").EntireColumn.Delete
+    
+    ' Make time columns general format rather than text
+    Call ConvertToGeneral
+    
+    ' Make time columns appear in time format rather than text so they can be sorted
+    Call ConvertTextColumnsToTime
+    
+    ' Sort based on time
+    Range("A2").CurrentRegion.Sort key1:=Range("A2"), order1:=xlAscending, Header:=xlGuess
+
+    ' Increase font size to 18 for all cells
+    With ActiveSheet
+        .Cells.Font.Size = "18"
+    End With
+    
+    ' Set columns to autofit
+       Columns("A:C").Columns.AutoFit
+    
+    ' Change to landscape
+    'ActiveSheet.PageSetup.Orientation = xlLandscape
+    
+    ' Activate top cell
+    Range("A1").Activate
+
+End Sub
+
+Sub TurnOffMerge()
+    Dim bProtected As Boolean
+    On Error GoTo TryActiveProtectedViewWindow
+    If ActiveWorkbook.Excel8CompatibilityMode Then
+      bProtected = ActiveSheet.ProtectContents
+      GoTo Continue
+    End If
+    
+TryActiveProtectedViewWindow:
+    On Error GoTo GiveUp
+    bProtected = Application.ActiveProtectedViewWindow <> nil
+    GoTo Continue
+
+GiveUp:
+    MsgBox "There was an error using this function."
+    On Error Resume Next
+    Exit Sub
+    
+    
+    
+
+    'If Application.ActiveProtectedViewWindow <> nil Then
+Continue:
+    If bProtected Then
+      MsgBox "You must turn off protected view before you can use this function"
+    Else
+
+
+        Cells.MergeCells = False
+        For Each mCell In ActiveSheet.UsedRange.Rows(1).Cells
+            mCell.EntireColumn.AutoFit
+        Next mCell
+
+    End If
+
+End Sub
+
+Sub DeleteBlankColumns()
+    Dim Col As Long, ColCnt As Long, Rng As Range
+     
+    Application.ScreenUpdating = False
+    Application.Calculation = xlCalculationManual
+     
+On Error GoTo Exits:
+     
+    If Selection.Columns.Count > 1 Then
+        Set Rng = Selection
+    Else
+        Set Rng = Range(Columns(1), Columns(ActiveSheet.Cells.SpecialCells(xlCellTypeLastCell).Column()))
+    End If
+    ColCnt = 0
+    For Col = Rng.Columns.Count To 1 Step -1
+        If Application.WorksheetFunction.CountA(Rng.Columns(Col).EntireColumn) = 0 Then
+            Rng.Columns(Col).EntireColumn.Delete
+            ColCnt = ColCnt + 1
+        End If
+    Next Col
+     
+Exits:
+    Application.ScreenUpdating = True
+    Application.Calculation = xlCalculationAutomatic
+     
+End Sub
+
+Sub ConvertToGeneral()
+' converttogeneral Macro
+    ActiveWindow.SmallScroll Down:=-6
+    Range("A2:A" & Cells(Rows.Count, "A").End(xlUp).Row).Select
+    Selection.NumberFormat = "General"
+    
+    Range("B2:B" & Cells(Rows.Count, "B").End(xlUp).Row).Select
+    Selection.NumberFormat = "General"
+
+End Sub
+
+Sub ConvertTextColumnsToTime()
+    Application.ScreenUpdating = False
+    For Each c In Range("A2:A" & Cells(Rows.Count, "A").End(xlUp).Row)
+        c.Value = TimeValue(c.Value)
+    Next
+    For Each c In Range("B2:B" & Cells(Rows.Count, "B").End(xlUp).Row)
+        c.Value = TimeValue(c.Value)
+    Next
+    Application.ScreenUpdating = False
+End Sub
